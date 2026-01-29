@@ -1,15 +1,37 @@
+using CollegeSchedule.Data;
+using CollegeSchedule.Middlewares;
+using CollegeSchedule.Services;
+using DotNetEnv;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// 1. Загружаем переменные из .env файла
+Env.Load();
 
+// 2. Собираем строку подключения к PostgreSQL
+var connectionString =
+    $"Host={Environment.GetEnvironmentVariable("DB_HOST")};" +
+    $"Port={Environment.GetEnvironmentVariable("DB_PORT")};" +
+    $"Database={Environment.GetEnvironmentVariable("DB_NAME")};" +
+    $"Username={Environment.GetEnvironmentVariable("DB_USER")};" +
+    $"Password={Environment.GetEnvironmentVariable("DB_PASSWORD")}";
+
+// 3. Регистрируем контекст базы данных
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
+// 4. Регистрируем наш сервис
+builder.Services.AddScoped<IScheduleService, ScheduleService>();
+
+// 5. Стандартные сервисы для Web API
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// 6. Настройка конвейера middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -18,8 +40,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthorization();
+// 7. Подключаем наш middleware для обработки ошибок
+app.UseMiddleware<ExceptionMiddleware>();
 
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
